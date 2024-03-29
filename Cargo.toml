@@ -7,7 +7,7 @@ members = [
     "nym-vpn-lib", "nym-vpnc",
     "nym-vpnd",
 ]
-exclude = ["nym-vpn-desktop/src-tauri"]
+exclude = ["nym-vpn-desktop/src-tauri", "nym-vpn-daemon"]
 
 # For local development
 # [patch."https://github.com/nymtech/nym"]
