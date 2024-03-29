@@ -88,7 +88,6 @@ message PingRequest {
 
 service NymVpnService {
   rpc ping (PingRequest) returns (Empty) {}
-  // TODO comment out until implemented
   // rpc SetUserCredentials (SetUserCredentialsRequest) returns (Empty) {}
   // rpc Connect (ConnectRequest) returns (Empty) {}
   // rpc Disconnect (Empty) returns (Empty) {}

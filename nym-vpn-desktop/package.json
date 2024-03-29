@@ -26,7 +26,8 @@
     "tauri": "tauri",
     "gen:licenses": "run-p --aggregate-output gen:licenses:rust gen:licenses:js",
     "gen:licenses:js": "npx license-checker-rseidelsohn --json --customPath license-fmt.json > public/licenses-js.json",
-    "gen:licenses:rust": "cd src-tauri && cargo about generate --all-features --format json -o ../public/licenses-rust.json"
+    "gen:licenses:rust": "cd src-tauri && cargo about generate --all-features --format json -o ../public/licenses-rust.json",
+    "gen:proto-types": "proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/types/proto proto/*.proto"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.17",
@@ -48,6 +49,8 @@
     "react-window": "^1.8.10"
   },
   "devDependencies": {
+    "@grpc/grpc-js": "^1.10.4",
+    "@grpc/proto-loader": "^0.7.12",
     "@tauri-apps/cli": "^1.5.0",
     "@types/lodash-es": "^4.17.0",
     "@types/react": "^18.2.37",

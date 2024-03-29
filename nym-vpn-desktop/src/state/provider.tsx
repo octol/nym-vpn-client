@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api';
 import React, { useEffect, useReducer } from 'react';
 import { MainDispatchContext, MainStateContext } from '../contexts';
+import { grpcClient } from '../../grpc';
 import { sleep } from '../helpers';
 import { Cli } from '../types';
 import init from './init';
@@ -13,7 +14,23 @@ type Props = {
 
 export function MainStateProvider({ children }: Props) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const client = grpcClient();
 
+  useEffect(() => {
+    if (!client) {
+      console.log('GRPC client not initialized');
+      return;
+    }
+    client.ping({}, (err, res) => {
+      if (err) {
+        console.error('Error pinging the server:', err);
+      } else {
+        console.log('Server response:', res);
+      }
+    });
+  }, [client]);
+
+  // set the grpc client in the state
   useTauriEvents(dispatch);
 
   // initialize app state
