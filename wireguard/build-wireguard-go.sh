@@ -3,6 +3,7 @@
 # This script is used to build wireguard-go libraries for all the platforms.
 set -eu
 
+AMNEZIA_DIR="libamnezia"
 LIB_DIR="libwg"
 
 IS_ANDROID_BUILD=false
@@ -267,9 +268,6 @@ function build_wireguard_go {
         MINGW*|MSYS_NT*) build_windows $@;;
     esac
 }
-
-AMNEZIA_DIR="libamnezia"
-LIB_DIR="libwg"
 
 # Ensure we are in the correct directory for the execution of this script
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
