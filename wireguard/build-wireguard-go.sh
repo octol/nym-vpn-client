@@ -9,7 +9,7 @@ LIB_DIR="libwg"
 IS_ANDROID_BUILD=false
 IS_IOS_BUILD=false
 IS_DOCKER_BUILD=true
-AMNEZIA_BUILD=false
+IS_AMNEZIA_BUILD=false
 
 function parseArgs {
     for arg in "$@"; do
@@ -27,7 +27,7 @@ function parseArgs {
             IS_DOCKER_BUILD=false;
             shift ;;
         "--amnezia" ) 
-            AMNEZIA_BUILD=true; 
+            IS_AMNEZIA_BUILD=true; 
             shift ;;
         # if we receive "--" consider everything after to be inner arguments
         -- ) shift; break ;;
@@ -251,7 +251,7 @@ function build_wireguard_go {
         return
     fi
 
-    if $AMNEZIA_BUILD ; then
+    if $IS_AMNEZIA_BUILD ; then
         LIB_DIR=$AMNEZIA_DIR
         echo "amnezia wireguard build enabled"
     fi
