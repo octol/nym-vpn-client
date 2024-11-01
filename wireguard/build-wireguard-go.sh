@@ -10,6 +10,10 @@ IS_IOS_BUILD=false
 IS_DOCKER_BUILD=true
 IS_AMNEZIA_BUILD=false
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# Ensure we are in the correct directory for the execution of this script
+cd $SCRIPT_DIR
+
 function parseArgs {
     for arg in "$@"; do
       case "$arg" in
@@ -251,7 +255,8 @@ function build_wireguard_go {
     fi
 
     if $IS_AMNEZIA_BUILD ; then
-        echo "amnezia wireguard build enabled"
+        echo "Amnezia wireguard build enabled"
+        switch_to_wireguard_amnezia
     fi
 
     if $IS_IOS_BUILD ; then
@@ -267,7 +272,24 @@ function build_wireguard_go {
     esac
 }
 
-# Ensure we are in the correct directory for the execution of this script
-script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd $script_dir
+function switch_to_wireguard_amnezia {
+    pushd $LIB_DIR
+        sed -i '' -e "s/golang.zx2c4.com\/wireguard/github.com\/amnezia-vpn\/amneziawg-go/" **/*.go
+        go mod edit -droprequire golang.zx2c4.com/wireguard
+        go mod edit -require github.com/amnezia-vpn/amneziawg-go@v0.2.12
+        go mod tidy
+    popd
+}
+
+function cleanup {
+    if $IS_AMNEZIA_BUILD ; then
+        echo "Reverting amnezia from libwg source code"
+        pushd "$SCRIPT_DIR/$LIB_DIR"
+            git checkout -- **/*.go go.mod go.sum
+        popd
+    fi
+}
+
+trap cleanup EXIT
+
 build_wireguard_go $@
