@@ -274,7 +274,7 @@ function build_wireguard_go {
 
 function switch_to_wireguard_amnezia {
     pushd $LIB_DIR
-        sed -i '' -e "s/golang.zx2c4.com\/wireguard/github.com\/amnezia-vpn\/amneziawg-go/" **/*.go
+        sed -i '' -e "s/golang.zx2c4.com\/wireguard/github.com\/amnezia-vpn\/amneziawg-go/" *.go **/*.go
         go mod edit -droprequire golang.zx2c4.com/wireguard
         go mod edit -require github.com/amnezia-vpn/amneziawg-go@v0.2.12
         go mod tidy
@@ -285,7 +285,7 @@ function cleanup {
     if $IS_AMNEZIA_BUILD ; then
         echo "Reverting amnezia from libwg source code"
         pushd "$SCRIPT_DIR/$LIB_DIR"
-            git checkout -- **/*.go go.mod go.sum
+            git checkout -- *.go **/*.go go.mod go.sum
         popd
     fi
 }
