@@ -3,7 +3,6 @@
 # This script is used to build wireguard-go libraries for all the platforms.
 set -eu
 
-AMNEZIA_DIR="libamnezia"
 LIB_DIR="libwg"
 
 IS_ANDROID_BUILD=false
@@ -252,7 +251,6 @@ function build_wireguard_go {
     fi
 
     if $IS_AMNEZIA_BUILD ; then
-        LIB_DIR=$AMNEZIA_DIR
         echo "amnezia wireguard build enabled"
     fi
 
