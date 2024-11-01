@@ -22,7 +22,7 @@ import (
 	"log"
 	"unsafe"
 
-	"github.com/amnezia-vpn/amneziawg-go/device"
+	"golang.zx2c4.com/wireguard/device"
 )
 
 // Define type aliases.
