@@ -54,7 +54,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
         await tunnelActor.setTunnelProvider(self)
 
-
         guard let tunnelProviderProtocol = protocolConfiguration as? NETunnelProviderProtocol,
               let mixnetConfig = tunnelProviderProtocol.asMixnetConfig()
         else {
