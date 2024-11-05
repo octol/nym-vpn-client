@@ -10,7 +10,7 @@ import Logging
 public final class ConfigurationManager {
     private let appSettings: AppSettings
     private let logger = Logger(label: "Configuration Manager")
-    private let fallbackEnv = Env.mainnet
+    private let fallbackEnv = Env.qa
 
 #if os(macOS)
     private let grpcManager: GRPCManager
@@ -21,10 +21,10 @@ public final class ConfigurationManager {
     // fallbackEnv edge case, when we cannot parse from AppSettings.
     private var currentEnv: Env {
         get {
-            Env(rawValue: appSettings.currentEnv) ?? fallbackEnv
+            fallbackEnv // Env(rawValue: appSettings.currentEnv) ?? fallbackEnv
         }
         set {
-            appSettings.currentEnv = newValue.rawValue
+            //appSettings.currentEnv = newValue.rawValue
         }
     }
 #if os(iOS)
