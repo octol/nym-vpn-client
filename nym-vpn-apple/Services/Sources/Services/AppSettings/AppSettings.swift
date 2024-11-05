@@ -48,7 +48,7 @@ public final class AppSettings: ObservableObject {
 
     @AppStorage(
         AppSettingKey.currentEnv.rawValue,
-        store: UserDefaults(suiteName: "VW5DZLFHM5.\(Constants.groupID.rawValue)")
+        store: UserDefaults(suiteName: Constants.groupID.rawValue)
     )
     public var currentEnv: String = "qa"
 
