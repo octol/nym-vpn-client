@@ -129,7 +129,8 @@ private extension CredentialsManager {
             initLogger()
             do {
                 let dataFolderURL = try dataFolderURL()
-                try startAccountController(dataDir: dataFolderURL.path(percentEncoded: false))
+                let dataDir = dataFolderURL.path(percentEncoded: false)
+                try startAccountController(dataDir: dataDir)
             } catch {
                 print("Error starting account controller: \(error)")
             }

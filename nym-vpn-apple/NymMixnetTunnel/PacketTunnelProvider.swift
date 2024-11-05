@@ -67,12 +67,19 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
         logger.info("Starting backend")
         
-        do {
-            try startVpn(config: vpnConfig)
-        } catch {
-            logger.error("startVpn failed with \(error)")
-            throw PacketTunnelProviderError.backendStartFailure
+        
+        while true {
+            do {
+                try startVpn(config: vpnConfig)
+            } catch VpnError.NoAccountStored {
+                logger.debug("Be honest..")
+            } catch {
+                logger.error("startVpn failed with \(error)")
+                throw PacketTunnelProviderError.backendStartFailure
+            }
+            try await Task.sleep(for: .seconds(1))
         }
+        
         logger.info("Backend is up and running...")
         connectionStartDate = Date()
 
