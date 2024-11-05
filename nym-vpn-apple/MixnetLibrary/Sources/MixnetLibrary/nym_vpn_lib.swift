@@ -51,9 +51,11 @@ fileprivate extension ForeignBytes {
 
 fileprivate extension Data {
     init(rustBuffer: RustBuffer) {
-        // TODO: This copies the buffer. Can we read directly from a
-        // Rust buffer?
-        self.init(bytes: rustBuffer.data!, count: Int(rustBuffer.len))
+        self.init(
+            bytesNoCopy: rustBuffer.data!,
+            count: Int(rustBuffer.len),
+            deallocator: .none
+        )
     }
 }
 
@@ -154,7 +156,7 @@ fileprivate func writeDouble(_ writer: inout [UInt8], _ value: Double) {
 }
 
 // Protocol for types that transfer other types across the FFI. This is
-// analogous go the Rust trait of the same name.
+// analogous to the Rust trait of the same name.
 fileprivate protocol FfiConverter {
     associatedtype FfiType
     associatedtype SwiftType
@@ -254,18 +256,19 @@ fileprivate extension RustCallStatus {
 }
 
 private func rustCall<T>(_ callback: (UnsafeMutablePointer<RustCallStatus>) -> T) throws -> T {
-    try makeRustCall(callback, errorHandler: nil)
+    let neverThrow: ((RustBuffer) throws -> Never)? = nil
+    return try makeRustCall(callback, errorHandler: neverThrow)
 }
 
-private func rustCallWithError<T>(
-    _ errorHandler: @escaping (RustBuffer) throws -> Error,
+private func rustCallWithError<T, E: Swift.Error>(
+    _ errorHandler: @escaping (RustBuffer) throws -> E,
     _ callback: (UnsafeMutablePointer<RustCallStatus>) -> T) throws -> T {
     try makeRustCall(callback, errorHandler: errorHandler)
 }
 
-private func makeRustCall<T>(
+private func makeRustCall<T, E: Swift.Error>(
     _ callback: (UnsafeMutablePointer<RustCallStatus>) -> T,
-    errorHandler: ((RustBuffer) throws -> Error)?
+    errorHandler: ((RustBuffer) throws -> E)?
 ) throws -> T {
     uniffiEnsureInitialized()
     var callStatus = RustCallStatus.init()
@@ -274,9 +277,9 @@ private func makeRustCall<T>(
     return returnedVal
 }
 
-private func uniffiCheckCallStatus(
+private func uniffiCheckCallStatus<E: Swift.Error>(
     callStatus: RustCallStatus,
-    errorHandler: ((RustBuffer) throws -> Error)?
+    errorHandler: ((RustBuffer) throws -> E)?
 ) throws {
     switch callStatus.code {
         case CALL_SUCCESS:
@@ -1199,8 +1202,9 @@ public struct ConnectionData {
     public var exitGateway: BoxedNodeIdentity
     /**
      * When the tunnel was last established.
+     * Set once the tunnel is connected.
      */
-    public var connectedAt: OffsetDateTime
+    public var connectedAt: OffsetDateTime?
     /**
      * Tunnel connection data.
      */
@@ -1217,7 +1221,8 @@ public struct ConnectionData {
          */exitGateway: BoxedNodeIdentity, 
         /**
          * When the tunnel was last established.
-         */connectedAt: OffsetDateTime, 
+         * Set once the tunnel is connected.
+         */connectedAt: OffsetDateTime?, 
         /**
          * Tunnel connection data.
          */tunnel: TunnelConnectionData) {
@@ -1262,7 +1267,7 @@ public struct FfiConverterTypeConnectionData: FfiConverterRustBuffer {
             try ConnectionData(
                 entryGateway: FfiConverterTypeBoxedNodeIdentity.read(from: &buf), 
                 exitGateway: FfiConverterTypeBoxedNodeIdentity.read(from: &buf), 
-                connectedAt: FfiConverterTypeOffsetDateTime.read(from: &buf), 
+                connectedAt: FfiConverterOptionTypeOffsetDateTime.read(from: &buf), 
                 tunnel: FfiConverterTypeTunnelConnectionData.read(from: &buf)
         )
     }
@@ -1270,7 +1275,7 @@ public struct FfiConverterTypeConnectionData: FfiConverterRustBuffer {
     public static func write(_ value: ConnectionData, into buf: inout [UInt8]) {
         FfiConverterTypeBoxedNodeIdentity.write(value.entryGateway, into: &buf)
         FfiConverterTypeBoxedNodeIdentity.write(value.exitGateway, into: &buf)
-        FfiConverterTypeOffsetDateTime.write(value.connectedAt, into: &buf)
+        FfiConverterOptionTypeOffsetDateTime.write(value.connectedAt, into: &buf)
         FfiConverterTypeTunnelConnectionData.write(value.tunnel, into: &buf)
     }
 }
@@ -2855,13 +2860,24 @@ extension AccountState: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Public enum describing action to perform after disconnect
+ */
 
 public enum ActionAfterDisconnect {
     
+    /**
+     * Do nothing after disconnect
+     */
     case nothing
+    /**
+     * Reconnect after disconnect
+     */
     case reconnect
-    case error(ErrorStateReason
-    )
+    /**
+     * Enter error state
+     */
+    case error
 }
 
 
@@ -2876,8 +2892,7 @@ public struct FfiConverterTypeActionAfterDisconnect: FfiConverterRustBuffer {
         
         case 2: return .reconnect
         
-        case 3: return .error(try FfiConverterTypeErrorStateReason.read(from: &buf)
-        )
+        case 3: return .error
         
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -2895,10 +2910,9 @@ public struct FfiConverterTypeActionAfterDisconnect: FfiConverterRustBuffer {
             writeInt(&buf, Int32(2))
         
         
-        case let .error(v1):
+        case .error:
             writeInt(&buf, Int32(3))
-            FfiConverterTypeErrorStateReason.write(v1, into: &buf)
-            
+        
         }
     }
 }
@@ -3384,17 +3398,17 @@ public enum ErrorStateReason {
      */
     case tunnelProvider
     /**
-     * Failure to establish mixnet connection.
+     * Same entry and exit gateway are unsupported.
      */
-    case establishMixnetConnection
+    case sameEntryAndExitGateway
     /**
-     * Failure to establish wireguard connection.
+     * Invalid country set for entry gateway
      */
-    case establishWireguardConnection
+    case invalidEntryGatewayCountry
     /**
-     * Tunnel went down at runtime.
+     * Invalid country set for exit gateway
      */
-    case tunnelDown
+    case invalidExitGatewayCountry
     /**
      * Program errors that must not happen.
      */
@@ -3419,11 +3433,11 @@ public struct FfiConverterTypeErrorStateReason: FfiConverterRustBuffer {
         
         case 5: return .tunnelProvider
         
-        case 6: return .establishMixnetConnection
+        case 6: return .sameEntryAndExitGateway
         
-        case 7: return .establishWireguardConnection
+        case 7: return .invalidEntryGatewayCountry
         
-        case 8: return .tunnelDown
+        case 8: return .invalidExitGatewayCountry
         
         case 9: return .`internal`
         
@@ -3455,15 +3469,15 @@ public struct FfiConverterTypeErrorStateReason: FfiConverterRustBuffer {
             writeInt(&buf, Int32(5))
         
         
-        case .establishMixnetConnection:
+        case .sameEntryAndExitGateway:
             writeInt(&buf, Int32(6))
         
         
-        case .establishWireguardConnection:
+        case .invalidEntryGatewayCountry:
             writeInt(&buf, Int32(7))
         
         
-        case .tunnelDown:
+        case .invalidExitGatewayCountry:
             writeInt(&buf, Int32(8))
         
         
@@ -4357,11 +4371,15 @@ extension TunnelEvent: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Public enum describing the tunnel state
+ */
 
 public enum TunnelState {
     
     case disconnected
-    case connecting
+    case connecting(connectionData: ConnectionData?
+    )
     case connected(connectionData: ConnectionData
     )
     case disconnecting(afterDisconnect: ActionAfterDisconnect
@@ -4380,7 +4398,8 @@ public struct FfiConverterTypeTunnelState: FfiConverterRustBuffer {
         
         case 1: return .disconnected
         
-        case 2: return .connecting
+        case 2: return .connecting(connectionData: try FfiConverterOptionTypeConnectionData.read(from: &buf)
+        )
         
         case 3: return .connected(connectionData: try FfiConverterTypeConnectionData.read(from: &buf)
         )
@@ -4403,9 +4422,10 @@ public struct FfiConverterTypeTunnelState: FfiConverterRustBuffer {
             writeInt(&buf, Int32(1))
         
         
-        case .connecting:
+        case let .connecting(connectionData):
             writeInt(&buf, Int32(2))
-        
+            FfiConverterOptionTypeConnectionData.write(connectionData, into: &buf)
+            
         
         case let .connected(connectionData):
             writeInt(&buf, Int32(3))
@@ -4623,7 +4643,11 @@ public struct FfiConverterTypeVpnError: FfiConverterRustBuffer {
 
 extension VpnError: Equatable, Hashable {}
 
-extension VpnError: Error { }
+extension VpnError: Foundation.LocalizedError {
+    public var errorDescription: String? {
+        String(reflecting: self)
+    }
+}
 
 fileprivate struct FfiConverterOptionUInt64: FfiConverterRustBuffer {
     typealias SwiftType = UInt64?
@@ -4704,6 +4728,27 @@ fileprivate struct FfiConverterOptionTypeTunnelStatusListener: FfiConverterRustB
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeTunnelStatusListener.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+fileprivate struct FfiConverterOptionTypeConnectionData: FfiConverterRustBuffer {
+    typealias SwiftType = ConnectionData?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeConnectionData.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeConnectionData.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -4998,6 +5043,27 @@ fileprivate struct FfiConverterOptionTypeIpv6Addr: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeIpv6Addr.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+fileprivate struct FfiConverterOptionTypeOffsetDateTime: FfiConverterRustBuffer {
+    typealias SwiftType = OffsetDateTime?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeOffsetDateTime.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeOffsetDateTime.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -5750,7 +5816,7 @@ fileprivate func uniffiRustCallAsync<F, T>(
     completeFunc: (UInt64, UnsafeMutablePointer<RustCallStatus>) -> F,
     freeFunc: (UInt64) -> (),
     liftFunc: (F) throws -> T,
-    errorHandler: ((RustBuffer) throws -> Error)?
+    errorHandler: ((RustBuffer) throws -> Swift.Error)?
 ) async throws -> T {
     // Make sure to call uniffiEnsureInitialized() since future creation doesn't have a
     // RustCallStatus param, so doesn't use makeRustCall()
@@ -5944,9 +6010,9 @@ private enum InitializationResult {
     case contractVersionMismatch
     case apiChecksumMismatch
 }
-// Use a global variables to perform the versioning checks. Swift ensures that
+// Use a global variable to perform the versioning checks. Swift ensures that
 // the code inside is only computed once.
-private var initializationResult: InitializationResult {
+private var initializationResult: InitializationResult = {
     // Get the bindings contract version from our ComponentInterface
     let bindings_contract_version = 26
     // Get the scaffolding contract version by calling the into the dylib
@@ -6010,7 +6076,7 @@ private var initializationResult: InitializationResult {
     uniffiCallbackInitOSTunProvider()
     uniffiCallbackInitTunnelStatusListener()
     return InitializationResult.ok
-}
+}()
 
 private func uniffiEnsureInitialized() {
     switch initializationResult {

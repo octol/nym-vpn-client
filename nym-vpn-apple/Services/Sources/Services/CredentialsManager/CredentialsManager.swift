@@ -126,9 +126,10 @@ private extension CredentialsManager {
     func setupAccountController() {
         Task {
 #if os(iOS)
+            initLogger()
             do {
                 let dataFolderURL = try dataFolderURL()
-                try startAccountController(dataDir: dataFolderURL.path())
+                try startAccountController(dataDir: dataFolderURL.path(percentEncoded: false))
             } catch {
                 print("Error starting account controller: \(error)")
             }

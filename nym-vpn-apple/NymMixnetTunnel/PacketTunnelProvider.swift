@@ -5,6 +5,7 @@ import NymLogger
 import MixnetLibrary
 import TunnelMixnet
 import Tunnels
+import CredentialsManager
 
 class PacketTunnelProvider: NEPacketTunnelProvider {
     private let secondInNanoseconds: UInt64 = 1000000000
@@ -50,7 +51,9 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
     override func startTunnel(options: [String: NSObject]? = nil) async throws {
         logger.info("Start tunnel...")
-
+        
+        initLogger()
+        
         setup()
 
         guard let tunnelProviderProtocol = protocolConfiguration as? NETunnelProviderProtocol,
@@ -63,9 +66,11 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let vpnConfig = try mixnetConfig.asVpnConfig(tunProvider: self, tunStatusListener: self)
 
         logger.info("Starting backend")
+        
         do {
             try startVpn(config: vpnConfig)
         } catch {
+            logger.error("startVpn failed with \(error)")
             throw PacketTunnelProviderError.backendStartFailure
         }
         logger.info("Backend is up and running...")
@@ -126,6 +131,10 @@ extension PacketTunnelProvider {
         } catch {
             self.logger.error("Failed to set environment: \(error)")
         }
+        
+        // Touch it to start!
+        let _ = CredentialsManager.shared
+        
         addDefaultPathObserver()
     }
 
