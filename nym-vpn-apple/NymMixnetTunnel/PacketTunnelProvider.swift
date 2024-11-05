@@ -86,7 +86,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
         logger.info("Backend is up and running...")
 
-        await tunnelActor.setStartConnecting()
         await tunnelActor.waitUntilStarted()
     }
 
@@ -199,8 +198,6 @@ actor TunnelActor {
 
     weak var tunnelProvider: NEPacketTunnelProvider?
 
-    var connectionStartDate: Date?
-
     /// Flag used to determine if `reasserting` property of tunnel provider can be used.
     /// Note that we shouldn't reassert unless we returned from `startTunnel()`
     var canReassert = false
@@ -252,10 +249,6 @@ actor TunnelActor {
         }
 
         tunnelState = state
-    }
-
-    func setStartConnecting() async {
-        connectionStartDate = Date()
     }
 
     /// Wait until the tunnel state shifted into either connected, disconnected or error state.
