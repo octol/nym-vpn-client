@@ -66,7 +66,9 @@ public final class ConfigurationManager {
 
     public func setup() throws {
 #if os(iOS)
-        initLogger()
+        // Init logger after configuring environment because it reads from RUST_LOG
+        defer { initLogger() }
+        
         try setEnvVariables(for: currentEnv)
 #elseif os(macOS)
         try setDaemonEnvironmentVariables()
