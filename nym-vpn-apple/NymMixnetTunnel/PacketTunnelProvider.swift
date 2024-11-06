@@ -6,12 +6,8 @@ import NymLogger
 import MixnetLibrary
 import TunnelMixnet
 import Tunnels
-import CredentialsManager
 
 class PacketTunnelProvider: NEPacketTunnelProvider {
-    private let secondInNanoseconds: UInt64 = 1000000000
-    //private let eventStream: AsyncStream<TunnelEvent>
-
     let stateLock = NSLock()
 
     private static var defaultPathObserverContext = 0
@@ -65,23 +61,21 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
         logger.info("Starting backend")
 
-        while true {
-            do {
-                try startVpn(config: vpnConfig)
-                break
-            } catch VpnError.NoAccountStored {
-                logger.debug("Be honest..")
-            } catch VpnError.AccountDeviceNotRegistered {
-                logger.debug("Waiting for device to be registered...")
-            } catch VpnError.AccountNotActive {
-                logger.debug("Waiting for account to activate?")
-            } catch VpnError.AccountReady {
-                logger.debug("???")
-            } catch {
-                logger.error("Failed to start vpn: \(error)")
-                throw PacketTunnelProviderError.backendStartFailure
-            }
-            try await Task.sleep(for: .seconds(1))
+        guard let credentialDataPath = vpnConfig.credentialDataPath else {
+            throw PacketTunnelProviderError.noCredentialDataDir
+        }
+
+        do {
+            try startAccountController(dataDir: credentialDataPath)
+        } catch {
+            throw PacketTunnelProviderError.startAccountController
+        }
+
+        do {
+            try startVpn(config: vpnConfig)
+        } catch {
+            logger.error("Failed to start vpn: \(error)")
+            throw PacketTunnelProviderError.backendStartFailure
         }
 
         logger.info("Backend is up and running...")
@@ -94,8 +88,14 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
         do {
             try stopVpn()
-        } catch let error {
+        } catch {
             logger.error("Failed to stop the tunnel: \(error)")
+        }
+
+        do {
+            try stopAccountController()
+        } catch {
+            logger.error("Failed to stop account controller: \(error)")
         }
     }
 
@@ -125,9 +125,6 @@ extension PacketTunnelProvider {
         } catch {
             self.logger.error("Failed to set environment: \(error)")
         }
-
-        // Touch it to start account controller!
-        _ = CredentialsManager.shared
 
         addDefaultPathObserver()
     }

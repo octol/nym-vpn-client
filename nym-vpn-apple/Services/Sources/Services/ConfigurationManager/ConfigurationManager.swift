@@ -6,6 +6,7 @@ import GRPCManager
 #endif
 import Constants
 import Logging
+import MixnetLibrary
 
 public final class ConfigurationManager {
     private let appSettings: AppSettings
@@ -65,6 +66,7 @@ public final class ConfigurationManager {
 
     public func setup() throws {
 #if os(iOS)
+        initLogger()
         try setEnvVariables(for: currentEnv)
 #elseif os(macOS)
         try setDaemonEnvironmentVariables()

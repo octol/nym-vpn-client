@@ -4537,6 +4537,7 @@ public enum VpnError {
     case NoActiveSubscription
     case AccountDeviceNotRegistered
     case AccountDeviceNotActive
+    case AccountStatusUnknown
 }
 
 
@@ -4572,6 +4573,7 @@ public struct FfiConverterTypeVpnError: FfiConverterRustBuffer {
         case 10: return .NoActiveSubscription
         case 11: return .AccountDeviceNotRegistered
         case 12: return .AccountDeviceNotActive
+        case 13: return .AccountStatusUnknown
 
          default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -4635,6 +4637,10 @@ public struct FfiConverterTypeVpnError: FfiConverterRustBuffer {
         
         case .AccountDeviceNotActive:
             writeInt(&buf, Int32(12))
+        
+        
+        case .AccountStatusUnknown:
+            writeInt(&buf, Int32(13))
         
         }
     }
@@ -5924,9 +5930,9 @@ public func fetchEnvironment(networkName: String)throws  -> NetworkEnvironment {
     )
 })
 }
-public func getAccountSummary()throws  -> AccountStateSummary {
+public func getAccountState()throws  -> AccountStateSummary {
     return try  FfiConverterTypeAccountStateSummary.lift(try rustCallWithError(FfiConverterTypeVpnError.lift) {
-    uniffi_nym_vpn_lib_fn_func_getaccountsummary($0
+    uniffi_nym_vpn_lib_fn_func_getaccountstate($0
     )
 })
 }
@@ -6004,6 +6010,11 @@ public func storeAccountMnemonic(mnemonic: String, path: String)throws  {try rus
     )
 }
 }
+public func updateAccountState()throws  {try rustCallWithError(FfiConverterTypeVpnError.lift) {
+    uniffi_nym_vpn_lib_fn_func_updateaccountstate($0
+    )
+}
+}
 
 private enum InitializationResult {
     case ok
@@ -6023,7 +6034,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_nym_vpn_lib_checksum_func_fetchenvironment() != 34561) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_nym_vpn_lib_checksum_func_getaccountsummary() != 13465) {
+    if (uniffi_nym_vpn_lib_checksum_func_getaccountstate() != 12813) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_nym_vpn_lib_checksum_func_getgatewaycountries() != 41607) {
@@ -6057,6 +6068,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_nym_vpn_lib_checksum_func_storeaccountmnemonic() != 55674) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_nym_vpn_lib_checksum_func_updateaccountstate() != 33999) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_nym_vpn_lib_checksum_method_osdefaultpathobserver_on_default_path_change() != 43452) {

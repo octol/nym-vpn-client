@@ -103,7 +103,6 @@ public final class CredentialsManager {
 private extension CredentialsManager {
     func setup() {
         setupGRPCManagerObservers()
-        setupAccountController()
         checkCredentialImport()
     }
 
@@ -121,21 +120,6 @@ private extension CredentialsManager {
         }
         .store(in: &cancellables)
 #endif
-    }
-
-    func setupAccountController() {
-        Task {
-#if os(iOS)
-            initLogger()
-            do {
-                let dataFolderURL = try dataFolderURL()
-                let dataDir = dataFolderURL.path(percentEncoded: false)
-                try startAccountController(dataDir: dataDir)
-            } catch {
-                print("Error starting account controller: \(error)")
-            }
-#endif
-        }
     }
 }
 

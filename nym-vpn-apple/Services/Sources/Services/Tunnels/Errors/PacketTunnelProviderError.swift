@@ -2,8 +2,7 @@ import Foundation
 
 public enum PacketTunnelProviderError: String, Error {
     case invalidSavedConfiguration
-    case dnsResolveFailure
+    case noCredentialDataDir
+    case startAccountController
     case backendStartFailure
-    case fileDescriptorFailure
-    case saveNetworkSettingsFailure
 }
