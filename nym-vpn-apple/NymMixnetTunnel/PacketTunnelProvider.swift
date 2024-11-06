@@ -33,8 +33,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     override func startTunnel(options: [String: NSObject]? = nil) async throws {
         logger.info("Start tunnel...")
 
-        initLogger()
-
         setup()
 
         await tunnelActor.setTunnelProvider(self)
