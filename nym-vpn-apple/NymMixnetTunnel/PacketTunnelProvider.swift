@@ -8,16 +8,9 @@ import TunnelMixnet
 import Tunnels
 
 class PacketTunnelProvider: NEPacketTunnelProvider {
-    let stateLock = NSLock()
-
-    private static var defaultPathObserverContext = 0
-
     lazy var logger = Logger(label: "MixnetTunnel")
 
     let tunnelActor: TunnelActor
-
-    private var defaultPathObserver: (any OsDefaultPathObserver)?
-    private var installedDefaultPathObserver = false
 
     override init() {
         LoggingSystem.bootstrap { label in
@@ -35,10 +28,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         }
 
         tunnelActor = TunnelActor()
-    }
-
-    deinit {
-        removeDefaultPathObserver()
     }
 
     override func startTunnel(options: [String: NSObject]? = nil) async throws {
@@ -97,6 +86,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         } catch {
             logger.error("Failed to stop account controller: \(error)")
         }
+
+        await tunnelActor.setTunnelProvider(nil)
     }
 
     override func handleAppMessage(_ messageData: Data) async -> Data? {
@@ -125,49 +116,12 @@ extension PacketTunnelProvider {
         } catch {
             self.logger.error("Failed to set environment: \(error)")
         }
-
-        addDefaultPathObserver()
-    }
-
-    func addDefaultPathObserver() {
-        guard !installedDefaultPathObserver else { return }
-        installedDefaultPathObserver = true
-        self.addObserver(self, forKeyPath: #keyPath(defaultPath), context: &Self.defaultPathObserverContext)
-    }
-
-    func removeDefaultPathObserver() {
-        guard installedDefaultPathObserver else { return }
-        installedDefaultPathObserver = false
-        self.removeObserver(self, forKeyPath: #keyPath(defaultPath), context: &Self.defaultPathObserverContext)
-    }
-
-    func notifyDefaultPathObserver() {
-        guard let defaultPath else { return }
-
-        let observer = stateLock.withLock { defaultPathObserver }
-        observer?.onDefaultPathChange(newPath: defaultPath.asOsDefaultPath())
-    }
-
-    // swiftlint:disable:next block_based_kvo
-    override func observeValue(
-        forKeyPath keyPath: String?,
-        of object: Any?,
-        change: [NSKeyValueChangeKey: Any]?,
-        context: UnsafeMutableRawPointer?
-    ) {
-        if keyPath == #keyPath(defaultPath) && context == &Self.defaultPathObserverContext {
-            notifyDefaultPathObserver()
-        } else {
-            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
-        }
     }
 }
 
 extension PacketTunnelProvider: OsTunProvider {
-    func setDefaultPathObserver(observer: (any OsDefaultPathObserver)?) throws {
-        stateLock.withLock {
-            defaultPathObserver = observer
-        }
+    func setDefaultPathObserver(observer: (any OsDefaultPathObserver)?) async throws {
+        await tunnelActor.setDefaultPathObserver(observer)
     }
 
     func setTunnelNetworkSettings(tunnelSettings: TunnelNetworkSettings) async throws {
@@ -189,11 +143,15 @@ extension PacketTunnelProvider: TunnelStatusListener {
 }
 
 actor TunnelActor {
-    private let eventStream: AsyncStream<TunnelEvent>
     private let eventContinuation: AsyncStream<TunnelEvent>.Continuation
+    private let defaultPathContinuation: AsyncStream<NWPath>.Continuation
+
     private let logger = Logger(label: "TunnelActor")
 
     weak var tunnelProvider: NEPacketTunnelProvider?
+
+    var defaultPathObserver: (any OsDefaultPathObserver)?
+    var defaultPathObservation: NSKeyValueObservation?
 
     /// Flag used to determine if `reasserting` property of tunnel provider can be used.
     /// Note that we shouldn't reassert unless we returned from `startTunnel()`
@@ -203,26 +161,49 @@ actor TunnelActor {
 
     init() {
         let (eventStream, eventContinuation) = AsyncStream<TunnelEvent>.makeStream()
-        self.eventStream = eventStream
         self.eventContinuation = eventContinuation
+
+        let (defaultPathStream, defaultPathContinuation) = AsyncStream<NWPath>.makeStream()
+        self.defaultPathContinuation = defaultPathContinuation
 
         Task.detached { [weak self, eventStream] in
             for await case let .newState(tunnelState) in eventStream {
                 await self?.setCurrentState(tunnelState)
             }
         }
+
+        Task.detached { [weak self, defaultPathStream] in
+            for await newPath in defaultPathStream {
+                await self?.defaultPathObserver?.onDefaultPathChange(newPath: newPath.asOsDefaultPath())
+            }
+        }
     }
 
     deinit {
         eventContinuation.finish()
+        defaultPathContinuation.finish()
     }
 
     nonisolated func onEvent(_ event: TunnelEvent) {
         eventContinuation.yield(event)
     }
 
-    func setTunnelProvider(_ tunnelProvider: NEPacketTunnelProvider) {
+    nonisolated func onDefaultPathChange(_ newPath: NWPath) {
+        defaultPathContinuation.yield(newPath)
+    }
+
+    func setTunnelProvider(_ tunnelProvider: NEPacketTunnelProvider?) {
         self.tunnelProvider = tunnelProvider
+
+        defaultPathObservation = tunnelProvider?.observe(\.defaultPath) { [weak self] tunnelProvider, change in
+            if let newPath = tunnelProvider.defaultPath {
+                self?.onDefaultPathChange(newPath)
+            }
+        }
+    }
+
+    func setDefaultPathObserver(_ newObserver: (any OsDefaultPathObserver)?) {
+        defaultPathObserver = newObserver
     }
 
     private func setCurrentState(_ state: TunnelState) async {

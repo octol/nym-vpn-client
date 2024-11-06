@@ -684,7 +684,7 @@ public protocol OsTunProvider : AnyObject {
     /**
      * Set or unset the default path observer.
      */
-    func setDefaultPathObserver(observer: OsDefaultPathObserver?) throws 
+    func setDefaultPathObserver(observer: OsDefaultPathObserver?) async throws 
     
 }
 
@@ -752,11 +752,21 @@ open func setTunnelNetworkSettings(tunnelSettings: TunnelNetworkSettings)async t
     /**
      * Set or unset the default path observer.
      */
-open func setDefaultPathObserver(observer: OsDefaultPathObserver?)throws  {try rustCallWithError(FfiConverterTypeVpnError.lift) {
-    uniffi_nym_vpn_lib_fn_method_ostunprovider_set_default_path_observer(self.uniffiClonePointer(),
-        FfiConverterOptionTypeOSDefaultPathObserver.lower(observer),$0
-    )
-}
+open func setDefaultPathObserver(observer: OsDefaultPathObserver?)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_nym_vpn_lib_fn_method_ostunprovider_set_default_path_observer(
+                    self.uniffiClonePointer(),
+                    FfiConverterOptionTypeOSDefaultPathObserver.lower(observer)
+                )
+            },
+            pollFunc: ffi_nym_vpn_lib_rust_future_poll_void,
+            completeFunc: ffi_nym_vpn_lib_rust_future_complete_void,
+            freeFunc: ffi_nym_vpn_lib_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeVpnError.lift
+        )
 }
     
 
@@ -813,27 +823,43 @@ fileprivate struct UniffiCallbackInterfaceOSTunProvider {
         setDefaultPathObserver: { (
             uniffiHandle: UInt64,
             observer: RustBuffer,
-            uniffiOutReturn: UnsafeMutableRawPointer,
-            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+            uniffiFutureCallback: @escaping UniffiForeignFutureCompleteVoid,
+            uniffiCallbackData: UInt64,
+            uniffiOutReturn: UnsafeMutablePointer<UniffiForeignFuture>
         ) in
             let makeCall = {
-                () throws -> () in
+                () async throws -> () in
                 guard let uniffiObj = try? FfiConverterTypeOSTunProvider.handleMap.get(handle: uniffiHandle) else {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
-                return try uniffiObj.setDefaultPathObserver(
+                return try await uniffiObj.setDefaultPathObserver(
                      observer: try FfiConverterOptionTypeOSDefaultPathObserver.lift(observer)
                 )
             }
 
-            
-            let writeReturn = { () }
-            uniffiTraitInterfaceCallWithError(
-                callStatus: uniffiCallStatus,
+            let uniffiHandleSuccess = { (returnValue: ()) in
+                uniffiFutureCallback(
+                    uniffiCallbackData,
+                    UniffiForeignFutureStructVoid(
+                        callStatus: RustCallStatus()
+                    )
+                )
+            }
+            let uniffiHandleError = { (statusCode, errorBuf) in
+                uniffiFutureCallback(
+                    uniffiCallbackData,
+                    UniffiForeignFutureStructVoid(
+                        callStatus: RustCallStatus(code: statusCode, errorBuf: errorBuf)
+                    )
+                )
+            }
+            let uniffiForeignFuture = uniffiTraitInterfaceCallAsyncWithError(
                 makeCall: makeCall,
-                writeReturn: writeReturn,
+                handleSuccess: uniffiHandleSuccess,
+                handleError: uniffiHandleError,
                 lowerError: FfiConverterTypeVpnError.lower
             )
+            uniffiOutReturn.pointee = uniffiForeignFuture
         },
         uniffiFree: { (uniffiHandle: UInt64) -> () in
             let result = try? FfiConverterTypeOSTunProvider.handleMap.remove(handle: uniffiHandle)
@@ -6079,7 +6105,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_nym_vpn_lib_checksum_method_ostunprovider_set_tunnel_network_settings() != 45546) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_nym_vpn_lib_checksum_method_ostunprovider_set_default_path_observer() != 11941) {
+    if (uniffi_nym_vpn_lib_checksum_method_ostunprovider_set_default_path_observer() != 6896) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_nym_vpn_lib_checksum_method_tunnelstatuslistener_on_event() != 60728) {
