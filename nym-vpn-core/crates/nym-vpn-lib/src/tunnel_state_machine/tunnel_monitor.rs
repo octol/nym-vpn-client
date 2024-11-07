@@ -282,11 +282,11 @@ impl TunnelMonitor {
             TunnelType::Mixnet => self.start_mixnet_tunnel(connected_mixnet).await?,
             TunnelType::Wireguard => {
                 match self.tunnel_settings.wireguard_tunnel_options.multihop_mode {
-                    WireguardMultihopMode::Netstack => {
-                        self.start_wireguard_tunnel(connected_mixnet).await?
-                    }
                     #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
                     WireguardMultihopMode::TunTun => {
+                        self.start_wireguard_tunnel(connected_mixnet).await?
+                    }
+                    WireguardMultihopMode::Netstack => {
                         self.start_wireguard_netstack_tunnel(connected_mixnet)
                             .await?
                     }

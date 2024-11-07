@@ -115,10 +115,12 @@ pub struct MixnetTunnelOptions {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum WireguardMultihopMode {
-    Netstack,
-
+    /// Multihop using two tun devices to nest tunnels.
     #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     TunTun,
+
+    /// Netstack based multihop.
+    Netstack,
 }
 
 impl Default for WireguardMultihopMode {

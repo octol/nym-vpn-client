@@ -214,7 +214,11 @@ async fn run_vpn(args: commands::RunArgs, data_path: Option<PathBuf>) -> anyhow:
     };
 
     let wireguard_tunnel_options = WireguardTunnelOptions {
-        multihop_mode: WireguardMultihopMode::TunTun,
+        multihop_mode: if args.netstack {
+            WireguardMultihopMode::Netstack
+        } else {
+            WireguardMultihopMode::TunTun
+        },
     };
 
     let tunnel_settings = TunnelSettings {
