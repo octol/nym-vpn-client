@@ -33,7 +33,7 @@ use nym_vpn_lib::{
     tunnel_state_machine::{
         ConnectionData, DnsOptions, GatewayPerformanceOptions, MixnetEvent, MixnetTunnelOptions,
         NymConfig, TunnelCommand, TunnelConnectionData, TunnelEvent, TunnelSettings, TunnelState,
-        TunnelStateMachine, TunnelType,
+        TunnelStateMachine, TunnelType, WireguardTunnelOptions,
     },
     MixnetClientConfig, NodeIdentity, Recipient,
 };
@@ -736,6 +736,7 @@ where
             tunnel_type,
             enable_credentials_mode: options.enable_credentials_mode,
             mixnet_tunnel_options: MixnetTunnelOptions::default(),
+            wireguard_tunnel_options: WireguardTunnelOptions::default(),
             gateway_performance_options: gateway_options,
             mixnet_client_config: Some(mixnet_client_config),
             entry_point: Box::new(config.entry_point),

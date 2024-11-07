@@ -22,7 +22,10 @@ use crate::{
 };
 use crate::{
     tunnel_state_machine::tunnel::{
-        wireguard::{connector::ConnectionData, two_hop_config::TwoHopConfig},
+        wireguard::{
+            connector::ConnectionData,
+            two_hop_config::{TwoHopConfig, MIN_IPV6_MTU, WG_TUNNEL_OVERHEAD},
+        },
         Result,
     },
     wg_config::WgNodeConfig,
@@ -59,12 +62,12 @@ impl ConnectedTunnel {
 
     pub fn entry_mtu(&self) -> u16 {
         // exit mtu + 80 (ipv6 + wg overhead)
-        1360
+        self.exit_mtu() + WG_TUNNEL_OVERHEAD
     }
 
     pub fn exit_mtu(&self) -> u16 {
         // minimum mtu guaranteed by ipv6
-        1280
+        MIN_IPV6_MTU
     }
 
     pub async fn run(
