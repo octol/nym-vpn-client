@@ -593,7 +593,6 @@ impl TunnelMonitor {
         };
 
         let tun_device = self.create_tun_device(packet_tunnel_settings).await?;
-
         tracing::info!("Created tun device");
 
         let tunnel_conn_data = TunnelConnectionData::Wireguard(WireguardConnectionData {
@@ -708,7 +707,7 @@ impl TunnelMonitor {
         packet_tunnel_settings: tunnel_provider::tunnel_settings::TunnelSettings,
     ) -> Result<AsyncDevice> {
         #[cfg(target_os = "ios")]
-        let raw_fd =
+        let owned_tun_fd =
             tunnel_provider::ios::interface::get_tun_fd().map_err(Error::LocateTunDevice)?;
 
         #[cfg(target_os = "android")]
@@ -721,7 +720,7 @@ impl TunnelMonitor {
         };
 
         let mut tun_config = tun::Configuration::default();
-        tun_config.raw_fd(raw_fd);
+        tun_config.raw_fd(owned_tun_fd.as_raw_fd());
 
         #[cfg(target_os = "ios")]
         {
@@ -732,6 +731,9 @@ impl TunnelMonitor {
         }
 
         let device = tun::create_as_async(&tun_config).map_err(Error::CreateTunDevice)?;
+
+        // Consume the owned fd, since the device is now responsible for closing the underlying raw fd.
+        let _ = owned_tun_fd.into_raw_fd();
 
         Ok(device)
     }
