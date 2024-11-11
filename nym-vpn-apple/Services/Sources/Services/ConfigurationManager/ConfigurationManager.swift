@@ -11,7 +11,7 @@ import MixnetLibrary
 public final class ConfigurationManager {
     private let appSettings: AppSettings
     private let logger = Logger(label: "Configuration Manager")
-    private let fallbackEnv = Env.qa
+    private let fallbackEnv = Env.canary
 
 #if os(macOS)
     private let grpcManager: GRPCManager

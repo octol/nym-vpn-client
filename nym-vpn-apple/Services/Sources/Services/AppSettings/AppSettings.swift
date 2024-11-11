@@ -50,7 +50,7 @@ public final class AppSettings: ObservableObject {
         AppSettingKey.currentEnv.rawValue,
         store: UserDefaults(suiteName: Constants.groupID.rawValue)
     )
-    public var currentEnv: String = "qa"
+    public var currentEnv: String = "canary"
 
     // Observed values for view models
     @Published public var isErrorReportingOnPublisher = false
