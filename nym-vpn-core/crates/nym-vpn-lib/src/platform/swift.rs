@@ -18,6 +18,14 @@ pub fn init_logs(level: String) {
         .category_level_filter("tokio_tungstenite", LevelFilter::Warn)
         .category_level_filter("handlebars", LevelFilter::Warn)
         .category_level_filter("sled", LevelFilter::Warn)
+        .category_level_filter(
+            "nym_client_core::client::real_messages_control::message_handler",
+            LevelFilter::Warn,
+        )
+        .category_level_filter(
+            "nym_client_core::client::packet_statistics_control",
+            LevelFilter::Warn,
+        )
         .init();
 
     match result {
