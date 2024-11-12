@@ -362,6 +362,9 @@ pub enum ErrorStateReason {
     /// Invalid country set for exit gateway
     InvalidExitGatewayCountry,
 
+    /// Failure to duplicate tunnel file descriptor.
+    DuplicateTunFd,
+
     /// Program errors that must not happen.
     Internal,
 }
@@ -641,6 +644,7 @@ impl tunnel::Error {
 
                 _ => None,
             },
+            Self::DupFd(_) => Some(ErrorStateReason::DuplicateTunFd),
             _ => None,
         }
     }
